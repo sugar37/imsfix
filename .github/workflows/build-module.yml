@@ -1,4 +1,4 @@
-Build R8Q VoLTE Magisk Module
+name: Build R8Q VoLTE Magisk Module
 
 on:
   workflow_dispatch:
