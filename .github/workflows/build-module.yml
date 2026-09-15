@@ -21,11 +21,11 @@ jobs:
           path: krazey-ims
           submodules: recursive
 
-      - name: Set up JDK 17
+      - name: Set up JDK 11
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '11'
 
       - name: Export Android SDK environment
         run: |
@@ -45,7 +45,8 @@ jobs:
           PHHIMS_OUTPUT_APK: ${{ github.workspace }}/PhhIms.apk
         run: |
           chmod +x gradlew build.sh
-          ./build.sh release
+          # Direct invocation with verbose logging flags to uncover precise Kotlin error details
+          ./gradlew assembleRelease --stacktrace --info
 
       - name: Build the RRO overlay (me.phh.ims.overlay, bundled in krazey/ims itself)
         env:
