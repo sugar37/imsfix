@@ -1,4 +1,4 @@
-name: Build R8Q VoLTE Magisk Module
+Name: Build R8Q VoLTE Magisk Module
 
 on:
   workflow_dispatch:
@@ -27,12 +27,15 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install required SDK packages (incl. NDK for rnnoise/webrtc-aec3)
+      - name: Export Android SDK environment
         run: |
-          sdkmanager --install "platforms;android-34" "build-tools;34.0.0" "ndk;25.1.8937393" "cmake;3.22.1" > /dev/null
+          echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/25.1.8937393" >> $GITHUB_ENV
+
+      - name: Install required SDK packages
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-34" "build-tools;34.0.0" "ndk;25.1.8937393" "cmake;3.22.1" > /dev/null
 
       - name: Build PhhIms.apk (signed with AOSP platform key)
         working-directory: krazey-ims
