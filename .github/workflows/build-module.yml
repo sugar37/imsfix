@@ -1,0 +1,84 @@
+name: Build R8Q VoLTE Magisk Module
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v4
+        with:
+          path: module-src
+
+      - name: Checkout PhhIms (krazey/ims)
+        uses: actions/checkout@v4
+        with:
+          repository: krazey/ims
+          path: krazey-ims
+          submodules: recursive
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install required SDK packages (incl. NDK for rnnoise/webrtc-aec3)
+        run: |
+          sdkmanager --install "platforms;android-34" "build-tools;34.0.0" "ndk;25.1.8937393" "cmake;3.22.1" > /dev/null
+
+      - name: Build PhhIms.apk (signed with AOSP platform key)
+        working-directory: krazey-ims
+        env:
+          PHHIMS_SIGNING_CERT: ${{ github.workspace }}/module-src/keys/platform.x509.pem
+          PHHIMS_SIGNING_KEY: ${{ github.workspace }}/module-src/keys/platform.pk8
+          PHHIMS_OUTPUT_APK: ${{ github.workspace }}/PhhIms.apk
+        run: |
+          chmod +x gradlew build.sh
+          ./build.sh release
+
+      - name: Build the RRO overlay (me.phh.ims.overlay, bundled in krazey/ims itself)
+        env:
+          BUILD_TOOLS: ${{ env.ANDROID_HOME }}/build-tools/34.0.0
+          PLATFORM_JAR: ${{ env.ANDROID_HOME }}/platforms/android-34/android.jar
+          SIGNAPK_JAR: ${{ github.workspace }}/krazey-ims/signapk/signapk.jar
+          CERT: ${{ github.workspace }}/module-src/keys/platform.x509.pem
+          KEY: ${{ github.workspace }}/module-src/keys/platform.pk8
+        run: |
+          set -e
+          SRC=krazey-ims/overlay
+          mkdir -p build/overlay
+          $BUILD_TOOLS/aapt2 compile --dir $SRC/res -o build/overlay/compiled.zip
+          $BUILD_TOOLS/aapt2 link -o build/overlay/unsigned.apk \
+            --manifest $SRC/AndroidManifest.xml \
+            -I $PLATFORM_JAR \
+            build/overlay/compiled.zip
+          java -jar $SIGNAPK_JAR $CERT $KEY build/overlay/unsigned.apk me.phh.ims.overlay.apk
+
+      - name: Assemble flashable Magisk module
+        run: |
+          set -e
+          OUT=out/r8q_volte_phhims
+          mkdir -p $OUT/system/priv-app/PhhIms
+          mkdir -p $OUT/system/overlay
+          mkdir -p $OUT/system/etc/permissions
+          cp module-src/module.prop $OUT/
+          cp module-src/post-fs-data.sh $OUT/
+          chmod 0755 $OUT/post-fs-data.sh
+          cp module-src/system/etc/permissions/privapp-permissions-me.phh.ims.xml $OUT/system/etc/permissions/
+          cp PhhIms.apk $OUT/system/priv-app/PhhIms/PhhIms.apk
+          cp me.phh.ims.overlay.apk $OUT/system/overlay/
+          cd out && zip -r ../r8q_volte_phhims.zip r8q_volte_phhims
+
+      - name: Upload module as build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: r8q_volte_phhims
+          path: r8q_volte_phhims.zip

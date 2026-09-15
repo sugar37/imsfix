@@ -1,0 +1,6 @@
+id=r8q_volte_phhims
+name=R8Q VoLTE (PhhIms) for Lunaris
+version=v0.1
+versionCode=1
+author=you
+description=Enables VoLTE/VoWiFi on Lunaris (r8q) using PhhIms as the MMTEL ImsService. Built from krazey/ims + overlays derived from yumeerin/device_samsung_sm8250-common commit 012117e.
